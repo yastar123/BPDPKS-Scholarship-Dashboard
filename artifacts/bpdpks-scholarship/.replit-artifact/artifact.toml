@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BPDPKS Scholarship Dashboard"
+description = "Dashboard pendukung keputusan untuk memantau pendaftar dan penerima beasiswa BPDPKS, kuota kampus/program studi, progres akademik, kegiatan, dan serapan anggaran."
+version = "1.0.0"
+id = "artifacts/bpdpks-scholarship"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23880
+
+[services.development]
+run = "pnpm --filter @workspace/bpdpks-scholarship run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bpdpks-scholarship", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bpdpks-scholarship/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23880"
+BASE_PATH = "/"

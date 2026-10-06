@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: BPDPKS scholarship decision-support API
 servers:
   - url: /api
-    description: Base API path
+    description: Laravel API base path
 tags:
   - name: health
     description: Health operations
+  - name: scholarship
+    description: Scholarship decision-support operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,125 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /scholarship/dashboard:
+    get:
+      operationId: getScholarshipDashboard
+      tags: [scholarship]
+      summary: Read scholarship decision-support indicators
+      parameters:
+        - name: cohort
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipDashboard"
+  /scholarship/capacities:
+    post:
+      operationId: saveScholarshipCapacity
+      tags: [scholarship]
+      summary: Create or update a campus, study-program, cohort quota, and budget allocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapacityInput"
+      responses:
+        "200":
+          description: Saved capacity allocation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusCapacity"
+        "422":
+          description: Quota is below the number of already accepted recipients
+  /scholarship/applicants:
+    get:
+      operationId: getScholarshipApplicants
+      tags: [scholarship]
+      summary: List and filter applicants and recipients
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cohort
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [mendaftar, lolos_administrasi, lolos_tes, diterima, mengundurkan_diri]
+        - name: province
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Filtered applicant records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicantList"
+    post:
+      operationId: createScholarshipApplicant
+      tags: [scholarship]
+      summary: Register an applicant after validating eligibility and quota rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicantInput"
+      responses:
+        "201":
+          description: Applicant registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipApplicant"
+        "422":
+          description: Eligibility, uniqueness, or quota validation failed
+  /scholarship/applicants/{id}:
+    patch:
+      operationId: updateScholarshipApplicant
+      tags: [scholarship]
+      summary: Update a record while enforcing selection, academic, and funding rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicantUpdate"
+      responses:
+        "200":
+          description: Updated applicant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScholarshipApplicant"
+        "404":
+          description: Applicant not found
+        "422":
+          description: Eligibility, uniqueness, or quota validation failed
 components:
   schemas:
     HealthStatus:
@@ -33,4 +154,276 @@ components:
           type: string
       required:
         - status
+    ScholarshipDashboard:
+      type: object
+      required:
+        - cohort
+        - totalApplicants
+        - recipients
+        - totalQuota
+        - occupiedQuota
+        - quotaFillRate
+        - graduates
+        - dropouts
+        - graduationRate
+        - dropoutRate
+        - budgetCeiling
+        - budgetRealized
+        - budgetRealizationRate
+        - byProvince
+        - byPath
+        - campusCapacity
+        - cohortTrend
+        - decisionFlags
+      properties:
+        cohort: { type: integer }
+        totalApplicants: { type: integer }
+        recipients: { type: integer }
+        totalQuota: { type: integer }
+        occupiedQuota: { type: integer }
+        quotaFillRate: { type: number }
+        graduates: { type: integer }
+        dropouts: { type: integer }
+        graduationRate: { type: number }
+        dropoutRate: { type: number }
+        budgetCeiling: { type: number }
+        budgetRealized: { type: number }
+        budgetRealizationRate: { type: number }
+        byProvince:
+          type: array
+          items: { $ref: "#/components/schemas/CountByLabel" }
+        byPath:
+          type: array
+          items: { $ref: "#/components/schemas/CountByLabel" }
+        campusCapacity:
+          type: array
+          items: { $ref: "#/components/schemas/CampusCapacity" }
+        cohortTrend:
+          type: array
+          items: { $ref: "#/components/schemas/CohortTrend" }
+        decisionFlags:
+          type: object
+          required: [ageOverLimit, quotaAtRisk, academicRisk, certificatePending]
+          properties:
+            ageOverLimit: { type: integer }
+            quotaAtRisk: { type: integer }
+            academicRisk: { type: integer }
+            certificatePending: { type: integer }
+    CountByLabel:
+      type: object
+      required: [label, count]
+      properties:
+        label: { type: string }
+        count: { type: integer }
+    CampusCapacity:
+      type: object
+      required: [campus, program, degree, cohort, quota, occupied, budgetCeiling]
+      properties:
+        campus: { type: string }
+        program: { type: string }
+        degree: { type: string, enum: [D1, D2, D3, D4/S1] }
+        cohort: { type: integer }
+        quota: { type: integer }
+        occupied: { type: integer }
+        budgetCeiling: { type: number }
+    CohortTrend:
+      type: object
+      required: [cohort, applicants, recipients, graduates, dropouts]
+      properties:
+        cohort: { type: integer }
+        applicants: { type: integer }
+        recipients: { type: integer }
+        graduates: { type: integer }
+        dropouts: { type: integer }
+    ApplicantList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ScholarshipApplicant" }
+        total: { type: integer }
+    ScholarshipApplicant:
+      type: object
+      required:
+        - id
+        - registrationNumber
+        - name
+        - gender
+        - birthDate
+        - ageAtRegistration
+        - ageEligible
+        - schoolName
+        - schoolType
+        - province
+        - regency
+        - selectionPath
+        - selectionStatus
+        - campus
+        - program
+        - degree
+        - cohort
+        - gpa
+        - activeSemester
+        - studyStatus
+        - tuitionPaid
+        - stipendAndBooks
+        - stipend
+        - books
+        - transport
+        - graduationCost
+        - graduationDate
+        - studyDurationMonths
+        - internshipLocation
+        - internshipPeriod
+        - certificateIssued
+        - placementStatus
+        - academicRecords
+        - fundingBySemester
+      properties:
+        id: { type: integer }
+        registrationNumber: { type: string }
+        name: { type: string }
+        gender: { type: string, enum: [L, P] }
+        birthDate: { type: string, format: date }
+        ageAtRegistration: { type: integer }
+        ageEligible: { type: boolean }
+        schoolName: { type: string }
+        schoolType: { type: string, enum: [SMA, SMK, MA] }
+        province: { type: string }
+        regency: { type: string }
+        selectionPath:
+          type: string
+          enum:
+            [pekebun, keluarga_pekebun, karyawan_sawit, keluarga_karyawan, pengurus_asosiasi, asn, penyuluh]
+        selectionStatus:
+          type: string
+          enum: [mendaftar]
+        campus: { type: string }
+        program: { type: string }
+        degree: { type: string, enum: [D1, D2, D3, D4/S1] }
+        cohort: { type: integer }
+        gpa: { type: ["number", "null"] }
+        activeSemester: { type: ["integer", "null"] }
+        studyStatus: { type: string, enum: [aktif, cuti, putus, lulus] }
+        tuitionPaid: { type: number }
+        stipendAndBooks: { type: number }
+        stipend: { type: number }
+        books: { type: number }
+        transport: { type: number }
+        graduationCost: { type: number }
+        graduationDate: { type: ["string", "null"], format: date }
+        studyDurationMonths: { type: ["integer", "null"] }
+        internshipLocation: { type: ["string", "null"] }
+        internshipPeriod: { type: ["string", "null"] }
+        certificateIssued: { type: boolean }
+        placementStatus: { type: string, enum: [belum_lulus, belum_ditempatkan, bekerja, wirausaha] }
+        academicRecords:
+          type: array
+          items: { $ref: "#/components/schemas/AcademicSemesterRecord" }
+        fundingBySemester:
+          type: array
+          items: { $ref: "#/components/schemas/SemesterFunding" }
+    AcademicSemesterRecord:
+      type: object
+      required: [semester, ip]
+      properties:
+        semester: { type: integer }
+        ip: { type: number }
+    SemesterFunding:
+      type: object
+      required: [semester, tuitionPaid, stipendAndBooks, stipend, books, transport, graduationCost]
+      properties:
+        semester: { type: integer }
+        tuitionPaid: { type: number }
+        stipendAndBooks: { type: number }
+        stipend: { type: number }
+        books: { type: number }
+        transport: { type: number }
+        graduationCost: { type: number }
+    ApplicantInput:
+      type: object
+      required:
+        - registrationNumber
+        - name
+        - gender
+        - birthDate
+        - schoolName
+        - schoolType
+        - province
+        - regency
+        - selectionPath
+        - selectionStatus
+        - campus
+        - program
+        - degree
+        - cohort
+      properties:
+        registrationNumber: { type: string, minLength: 4, maxLength: 30 }
+        name: { type: string, minLength: 2, maxLength: 150 }
+        gender: { type: string, enum: [L, P] }
+        birthDate: { type: string, format: date }
+        schoolName: { type: string, minLength: 2, maxLength: 180 }
+        schoolType: { type: string, enum: [SMA, SMK, MA] }
+        province: { type: string, minLength: 2, maxLength: 100 }
+        regency: { type: string, minLength: 2, maxLength: 100 }
+        selectionPath:
+          type: string
+          enum:
+            [pekebun, keluarga_pekebun, karyawan_sawit, keluarga_karyawan, pengurus_asosiasi, asn, penyuluh]
+        selectionStatus:
+          type: string
+          enum: [mendaftar, lolos_administrasi, lolos_tes, diterima, mengundurkan_diri]
+        campus: { type: string, minLength: 2, maxLength: 180 }
+        program: { type: string, minLength: 2, maxLength: 180 }
+        degree: { type: string, enum: [D1, D2, D3, D4/S1] }
+        cohort: { type: integer, minimum: 2000, maximum: 2100 }
+    ApplicantUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        selectionStatus:
+          type: string
+          enum: [mendaftar, lolos_administrasi, lolos_tes, diterima, mengundurkan_diri]
+        gpa: { type: ["number", "null"], minimum: 0, maximum: 4 }
+        activeSemester: { type: ["integer", "null"], minimum: 1 }
+        studyStatus: { type: string, enum: [aktif, cuti, putus, lulus] }
+        graduationDate: { type: ["string", "null"], format: date }
+        studyDurationMonths: { type: ["integer", "null"], minimum: 0 }
+        internshipLocation: { type: ["string", "null"], maxLength: 180 }
+        internshipPeriod: { type: ["string", "null"], maxLength: 100 }
+        certificateIssued: { type: boolean }
+        placementStatus: { type: string, enum: [belum_lulus, belum_ditempatkan, bekerja, wirausaha] }
+        academicRecords:
+          type: array
+          items:
+            type: object
+            required: [semester, ip]
+            properties:
+              semester: { type: integer, minimum: 1 }
+              ip: { type: number, minimum: 0, maximum: 4 }
+        fundingBySemester:
+          type: array
+          items:
+            type: object
+            required: [semester, tuitionPaid, stipendAndBooks, stipend, books, transport, graduationCost]
+            properties:
+              semester: { type: integer, minimum: 1 }
+              tuitionPaid: { type: number, minimum: 0 }
+              stipendAndBooks: { type: number, minimum: 0 }
+              stipend: { type: number, minimum: 0 }
+              books: { type: number, minimum: 0 }
+              transport: { type: number, minimum: 0 }
+              graduationCost: { type: number, minimum: 0 }
+    CapacityInput:
+      type: object
+      required: [campus, program, degree, cohort, quota, budgetCeiling]
+      properties:
+        campus: { type: string, minLength: 2, maxLength: 180 }
+        campusProvince: { type: ["string", "null"], maxLength: 100 }
+        program: { type: string, minLength: 2, maxLength: 180 }
+        degree: { type: string, enum: [D1, D2, D3, D4/S1] }
+        cohort: { type: integer, minimum: 2000, maximum: 2100 }
+        quota: { type: integer, minimum: 0 }
+        budgetCeiling: { type: number, minimum: 0 }
 

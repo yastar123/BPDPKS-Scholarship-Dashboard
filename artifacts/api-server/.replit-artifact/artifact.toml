@@ -1,6 +1,6 @@
 kind = "api"
 previewPath = "/api" # TODO - should be excluded from preview in the first place
-title = "API Server"
+title = "BPDPKS Scholarship API"
 version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
 
@@ -15,18 +15,14 @@ run = "pnpm --filter @workspace/api-server run dev"
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
-
-[services.production.build.env]
-NODE_ENV = "production"
+args = ["composer", "install", "--working-dir=artifacts/api-server/laravel-app", "--no-dev", "--optimize-autoloader", "--no-interaction"]
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+args = ["bash", "artifacts/api-server/scripts/start-laravel-api.sh"]
 
 [services.production.run.env]
 PORT = "8080"
-NODE_ENV = "production"
+APP_ENV = "production"
 
 [services.production.health.startup]
 path = "/api/healthz"
